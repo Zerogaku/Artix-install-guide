@@ -1,4 +1,4 @@
-*+title: Install guide for artix linux
+#+title: Install guide for artix linux
 
 * check uefi
 #+begin_src shell
