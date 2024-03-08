@@ -55,8 +55,7 @@ mkswap -L SWAP /dev/sda4           <- swap partition
 # do swapoff /dev/sda2
 swapon /dev/disk/by-label/SWAP                 (if created)
 mount /dev/disk/by-label/ROOT /mnt
-mkdir /mnt/boot
-mkdir /mnt/boot/efi                            (UEFI)
+mkdir -p /mnt/boot/efi                            (UEFI)
 mount /dev/disk/by-label/ESP /mnt/boot/efi     (UEFI)
 #+end_src
 * update system clock
@@ -70,7 +69,7 @@ sv up ntpd
 nano /etc/pacman.d/mirrorlist
 
 # add os-prober if dual booting
-basestrap /mnt base base-devel runit elogind-runit linux linux-firmware nvim networkmanager-runit grub grub efibootmgr git
+basestrap /mnt base base-devel runit elogind-runit linux linux-firmware neovim networkmanager-runit grub efibootmgr git zsh
 
 fstabgen -U /mnt >> /mnt/etc/fstab
 
