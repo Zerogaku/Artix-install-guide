@@ -8,8 +8,8 @@ ls /sys/firmware/efi/efivars
 #+begin_src shell
 su
 #+end_src
-
 * connect to wifi
+#+begin_src shell
 connmanctl
 
 enable wifi
@@ -22,78 +22,76 @@ agent on
 
 connect (id obtained from services)
 
-(wifi password 9fqLjqKo)
-
 quit
-
-* partition disks
-
+#+end_src
+* partitioning
+** partition the disks
+#+begin_src shell
 lsblk
 
 fdisk /dev/sda
 
-g (new empty partition table)
+# g (new empty partition table)
+# n (new partition)
 
-n (new partition)
+# +1G (boot)
+# +32G (swap)
+# (remaining space) (root)
 
-+1G (boot)
-+30G (root)
-+2G (swap)
-(remaining space) (home)
+# w (write)
 
-t
+#+end_src
 
-(efi)  1
-(root) 23
-(swap) 19
-(home) 28
+** format the partitions
+mkfs.fat -F 32 /dev/sda1
+fatlabel /dev/sda1 ESP
+mkfs.ext4 -L ROOT /dev/sda3        <- root partition
+mkswap -L SWAP /dev/sda4           <- swap partition
 
-w (write)
-
-(home) mkfs.ext4 /dev/sda4
-(root) mkfs.ext4 /dev/sda2
-(boot) mkfs.fat -F32 /dev/sda1
-(swap) swapoff /dev/sda3 (to avoid this error: mkswap: error: /dev/sda3 is mounted: will not make swapspace)
-(swap) mkswap /dev/sda3
-
-swapon /dev/sda3
-mount /dev/sda2 /mnt
-mkdir /mnt/home
+** mount the partitions
+# To avoid this error: mkswap: error: /dev/sda2 is mounted: will not make swapspace
+# do swapoff /dev/sda2
+swapon /dev/disk/by-label/SWAP                 (if created)
+mount /dev/disk/by-label/ROOT /mnt
 mkdir /mnt/boot
-mount /dev/sda1 /mnt/boot
-mount /dev/sda4 /mnt/home
+mkdir /mnt/boot/efi                            (UEFI)
+mount /dev/disk/by-label/ESP /mnt/boot/efi     (UEFI)
 
-basestrap /mnt base base-devel runit elogind-runit linux linux-firmware vim
+* update system clock
+#+begin_src shell
+ln -s /etc/runit/sv/ntpd /run/runit/service/
+sv up ntpd
+#+end_src
+* install a kernel
+nano /etc/pacman.d/mirrorlist
+
+basestrap /mnt base base-devel runit elogind-runit linux linux-firmware nvim networkmanager-runit grub grub efibootmgr git
 
 fstabgen -U /mnt >> /mnt/etc/fstab
 
 artix-chroot /mnt
-
-bash (optional)
-
-vim /etc/pacman.d/mirrorlist (optional)
-
-ln -sf /usr/share/zoneinfo/Europe/Madrid /etc/localtime
+* configure the base system
+ln -sf /usr/share/zoneinfo/Region/City /etc/localtime
 
 hwclock --systohc
 
-vim /etc/locale.gen
+nvim /etc/locale.gen
 (uncomment)
 en_US.UTF-8 UTF-8
 en_US ISO-8859-1
 
 locale-gen
 
-vim /etc/locale.conf
+nvim /etc/locale.conf
 (add)
-LANG=en_US.UTF-8
+LANG="en_US.UTF-8"
+LC_COLLATE="C"
 
 pacman -S networkmanager networkmanager-runit
 
 ln -s /etc/runit/sv/NetworkManager/ /etc/runit/runsvdir/default
 
 vim /etc/hostname
-(mercury)
 
 vim /etc/hosts
 
@@ -102,32 +100,31 @@ vim /etc/hosts
 127.0.1.1   mercury.localdomain mercury
 
 pacman -S grub efibootmgr
-
-grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
-
+# for UEFI systems, add --removable if necessary
+grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=grub
 grub-mkconfig -o /boot/grub/grub.cfg
 
 passwd
 
-exit
-exit
 
+# useradd -m -g wheel -s /bin/zsh "$name"
+# usermod -a -G wheel
+
+exit
 umount -R /mnt
 reboot
 
-
-
 * post install
 
-** larbs
+** install configs
+login as root
 
-(install larbs)
-curl -LO larbs.xyz/larbs.sh
-sh larbs.sh
+# install carbs
+curl -LO https://raw.githubusercontent.com/Zerogaku/CARBS/main/larbs.sh
+sh carbs.sh
 
-
+* xorg related configs (reference)
 ** screen resolution
-
 in /etc/X11/xorg.conf.d/
 make a file called 10-monitor.conf
 and place this in the config file:
@@ -145,7 +142,6 @@ add this to the end of 10-monitor.conf
 Section "ServerFlags"
     Option "BlankTime" "0"
 EndSection
-
 ** screen tearing
 
 sudo pacman -S picom
