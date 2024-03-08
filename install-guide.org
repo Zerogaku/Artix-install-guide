@@ -1,0 +1,364 @@
+*+title: Install guide for artix linux
+
+* check uefi
+#+begin_src shell
+ls /sys/firmware/efi/efivars
+#+end_src
+* root privalege
+#+begin_src shell
+su
+#+end_src
+
+* connect to wifi
+connmanctl
+
+enable wifi
+
+scan wifi
+
+services
+
+agent on
+
+connect (id obtained from services)
+
+(wifi password 9fqLjqKo)
+
+quit
+
+* partition disks
+
+lsblk
+
+fdisk /dev/sda
+
+g (new empty partition table)
+
+n (new partition)
+
++1G (boot)
++30G (root)
++2G (swap)
+(remaining space) (home)
+
+t
+
+(efi)  1
+(root) 23
+(swap) 19
+(home) 28
+
+w (write)
+
+(home) mkfs.ext4 /dev/sda4
+(root) mkfs.ext4 /dev/sda2
+(boot) mkfs.fat -F32 /dev/sda1
+(swap) swapoff /dev/sda3 (to avoid this error: mkswap: error: /dev/sda3 is mounted: will not make swapspace)
+(swap) mkswap /dev/sda3
+
+swapon /dev/sda3
+mount /dev/sda2 /mnt
+mkdir /mnt/home
+mkdir /mnt/boot
+mount /dev/sda1 /mnt/boot
+mount /dev/sda4 /mnt/home
+
+basestrap /mnt base base-devel runit elogind-runit linux linux-firmware vim
+
+fstabgen -U /mnt >> /mnt/etc/fstab
+
+artix-chroot /mnt
+
+bash (optional)
+
+vim /etc/pacman.d/mirrorlist (optional)
+
+ln -sf /usr/share/zoneinfo/Europe/Madrid /etc/localtime
+
+hwclock --systohc
+
+vim /etc/locale.gen
+(uncomment)
+en_US.UTF-8 UTF-8
+en_US ISO-8859-1
+
+locale-gen
+
+vim /etc/locale.conf
+(add)
+LANG=en_US.UTF-8
+
+pacman -S networkmanager networkmanager-runit
+
+ln -s /etc/runit/sv/NetworkManager/ /etc/runit/runsvdir/default
+
+vim /etc/hostname
+(mercury)
+
+vim /etc/hosts
+
+127.0.0.1   localhost
+::1         localhost
+127.0.1.1   mercury.localdomain mercury
+
+pacman -S grub efibootmgr
+
+grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
+
+grub-mkconfig -o /boot/grub/grub.cfg
+
+passwd
+
+exit
+exit
+
+umount -R /mnt
+reboot
+
+
+
+* post install
+
+** larbs
+
+(install larbs)
+curl -LO larbs.xyz/larbs.sh
+sh larbs.sh
+
+
+** screen resolution
+
+in /etc/X11/xorg.conf.d/
+make a file called 10-monitor.conf
+and place this in the config file:
+
+Section "Monitor"
+	Identifier	"eDP-1"
+	Modeline	"1920x1080_60.00"	173.00  1920 2048 2248 2576  1080 1083 1088 1120 -hsync +vsync
+	Option		"PreferredMode" "1920x1080_60.00"
+EndSection
+
+(screen blanking)
+
+add this to the end of 10-monitor.conf
+
+Section "ServerFlags"
+    Option "BlankTime" "0"
+EndSection
+
+** screen tearing
+
+sudo pacman -S picom
+
+cp /etc/xdg/picom.conf ~/.config/picom/picom.conf
+
+use picom --experimental-backends & in .xprofile (don't set Options "TearFree" "true" in 20-intel.conf, prime-run or intel won't work)
+
+focus-exclude = [
+"x = 0 && y = 0 && override_redirect = true"
+];
+
+backend = "glx"
+vsync = true
+
+(in case you want blur)
+
+blur:
+{
+    method = "dual_kawase";
+    strength = 0;
+}
+
+blur-background = true
+
+** Music setup
+
+(community)
+ardour
+jack2
+cadence
+pulseaudio-jack
+a2jmidid
+distrho-ports
+
+alsa-utils? dont install if pulseaudio-jack isnt working stop it and start it again (nvm alsa-utils doesn't seem to be the problem it's a bug on cadence)
+
+add pulseaudio --start near the end of .xprofile
+
+also in case jack's volume is lower than alsa's click on the volume icon and set jack volume to 100%
+
+(aur)
+zyn-fusion
+
+python-pip
+mkdir Repos
+git clone https://github.com/PiOverFour/MPK-M2-editor.git
+pip3 install -r requirements.txt
+get ram
+
+usermod -aG audio wim
+sudo vim /etc/security/limits.conf
+
+* audio group
+@audio      -   rtprio  95
+@audio      -   memlock unlimited
+
+* End of file
+
+* cadence settings
+
+go to configure
+
+then driver
+
+pick alsa
+
+then choose a device/interface (hw:PCH,0 [ALC3239 Analog])
+
+then go the engine, and enable realtime the set realtime priority to maximum
+
+** browser setup
+
+Auto tab discard
+I don't care about cookies
+sponsorblock
+surfingkeys (surfingkeys.js)
+tampermonkey (Yes i'm here, youtube! greasyfork)
+
+** nvidia
+
+artix has it's own set of repositories, make sure to enable them along with arch's
+enable multilib and lib32 in /etc/pacman.conf
+
+install steam nvidia mesa-demos nvidia-prime
+
+glxinfo | grep "OpenGL renderer"
+prime-run glxinfo | grep "OpenGL renderer"
+
+katana zero only works with PROTON_USE_WINE3D11=1 %command% in it's launch options
+
+avgn use PROTON_USE_WINED3D=1
+
+use prime-run
+
+*!/bin/sh
+
+prime-run $(dmenu_path | dmenu -i -p "prime-run" "$@")
+
+or
+
+dmenu_path | dmenu "$@" | xargs prime-run
+
+name it dmenuprime
+
+then chmod +x dmenuprime
+
+** bluetooth
+
+sudo pacman -S bluez bluez-utils bluez-runit
+
+sudo ln -s /etc/runit/sv/bluetoothd /run/runit/service
+
+sv start bluetoothd
+
+** grub
+
+to "hide" boot messages use console=tty2 as a kernel parameter in the grub config
+vim /etc/default/grub
+grub-mkconfig -o /boot/grub/grub.cfg
+
+** cronjobs
+
+(systemd)
+
+sudo pacman -S cronie
+sudo systemctl enable --now cronie
+sudo -E crontab -e
+
+*/1 * * * * /etc/pacman -Sy
+
+(runit)
+sudo pacman -S cronie cronie-runit
+sudo ln -s /etc/runit/sv/cronie /run/runit/service
+sv start cronie
+
+** redshift
+sudo pacman -S redshift
+
+change api key to geoclue in /etc/geoclue/geoclue.conf
+
+url=https://location.services.mozilla.com/v1/geolocate?key=geoclue
+
+allow redshift to use geoclue
+
+[redshift]
+allowed=true
+system=false
+users=
+
+(place in .xprofile)
+
+redshift -l 41.23:2.9
+
+** font
+
+sudo pacman -S ttf-liberation
+
+and change font in dwm config and sudo make install
+static char *fonts[] = {"Liberation Mono:size=10", "JoyPixels:pixelsize=10:antialias=true:autohint=true"}
+
+
+** lf bulkrename
+moreutils
+
+** pcsx2
+
+works well, install with pacman -S pcsx2 and run it with prime-run
+make sure to download a bios for it
+
+**
+
+install xf86-input-wacom
+
+make a script and place it in ~/.local/bin and chmod +x it
+
+https://wiki.archlinux.org/index.php/Wacom_tablet*Mapping_pad_buttons_to_function_keys
+
+(binding function keys)
+xsetwacom set pad Button 1 "key +ctrl z -ctrl"
+
+(for touchring)
+xsetwacom set "Wacom Intuos Pro M Pad pad" AbsWheelDown "key PgDn"
+xsetwacom set "Wacom Intuos Pro M Pad pad" AbsWheelUp "key PgUp"
+
+(for multimonitor example)
+xsetwacom set "Wacom Intuos4 6x9 stylus" MapToOutput VGA1
+
+** useful applications
+picard
+doom emacs
+blender
+krita
+godot
+gimp
+barrier
+
+** pulse audio over network
+Enable the TCP module on the server(the computer that actually outputs sound), edit /etc/pulse/default.pa to add or uncomment:
+
+load-module module-native-protocol-tcp
+
+To make sure module-native-protocol-tcp is loaded on the server, you can use:
+
+pacmd list-modules | grep module-native-protocol-tcp
+
+If it is undesirable to copy the cookie file from clients, anonymous clients can access the server by passing auth-anonymous to module-native-protocol-tcp on the server (again in /etc/pulse/default.pa):
+
+load-module module-native-protocol-tcp auth-anonymous=1
+
+For the remote PulseAudio server to appear in the PulseAudio Device Chooser (pasystray), load the appropriate zeroconf modules, and enable the Avahi daemon. On both machines, the client and server, install the pulseaudio-zeroconf package. Start/enable avahi-daemon.service afterwards.
+
+On the server, add load-module module-zeroconf-publish to /etc/pulse/default.pa. On the client, add load-module module-zeroconf-discover to /etc/pulse/default.pa. Now redirect any stream or complete audio output to the remote PulseAudio server by selecting the appropriate sink.
+
+pulseaudio-zeroconf comes with avahi
+then install avahi-runit
