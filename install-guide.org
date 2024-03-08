@@ -43,12 +43,14 @@ fdisk /dev/sda
 #+end_src
 
 ** format the partitions
+#+begin_src shell
 mkfs.fat -F 32 /dev/sda1
 fatlabel /dev/sda1 ESP
 mkfs.ext4 -L ROOT /dev/sda3        <- root partition
 mkswap -L SWAP /dev/sda4           <- swap partition
-
+#+end_src
 ** mount the partitions
+#+begin_src shell
 # To avoid this error: mkswap: error: /dev/sda2 is mounted: will not make swapspace
 # do swapoff /dev/sda2
 swapon /dev/disk/by-label/SWAP                 (if created)
@@ -56,13 +58,15 @@ mount /dev/disk/by-label/ROOT /mnt
 mkdir /mnt/boot
 mkdir /mnt/boot/efi                            (UEFI)
 mount /dev/disk/by-label/ESP /mnt/boot/efi     (UEFI)
-
+#+end_src
 * update system clock
 #+begin_src shell
 ln -s /etc/runit/sv/ntpd /run/runit/service/
 sv up ntpd
 #+end_src
 * install a kernel
+#+begin_src shell
+
 nano /etc/pacman.d/mirrorlist
 
 basestrap /mnt base base-devel runit elogind-runit linux linux-firmware nvim networkmanager-runit grub grub efibootmgr git
@@ -70,7 +74,9 @@ basestrap /mnt base base-devel runit elogind-runit linux linux-firmware nvim net
 fstabgen -U /mnt >> /mnt/etc/fstab
 
 artix-chroot /mnt
+#+end_src
 * configure the base system
+#+begin_src shell
 ln -sf /usr/share/zoneinfo/Region/City /etc/localtime
 
 hwclock --systohc
@@ -113,16 +119,15 @@ passwd
 exit
 umount -R /mnt
 reboot
-
+#+end_src
 * post install
-
 ** install configs
 login as root
-
+#+begin_src shell
 # install carbs
 curl -LO https://raw.githubusercontent.com/Zerogaku/CARBS/main/larbs.sh
 sh carbs.sh
-
+#+end_src
 * xorg related configs (reference)
 ** screen resolution
 in /etc/X11/xorg.conf.d/
@@ -195,13 +200,12 @@ get ram
 usermod -aG audio wim
 sudo vim /etc/security/limits.conf
 
-* audio group
+** audio group
 @audio      -   rtprio  95
 @audio      -   memlock unlimited
 
-* End of file
 
-* cadence settings
+** cadence settings
 
 go to configure
 
