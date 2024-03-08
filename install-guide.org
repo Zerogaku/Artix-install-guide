@@ -69,6 +69,7 @@ sv up ntpd
 
 nano /etc/pacman.d/mirrorlist
 
+# add os-prober if dual booting
 basestrap /mnt base base-devel runit elogind-runit linux linux-firmware nvim networkmanager-runit grub grub efibootmgr git
 
 fstabgen -U /mnt >> /mnt/etc/fstab
